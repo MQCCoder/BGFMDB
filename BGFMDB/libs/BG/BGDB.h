@@ -12,9 +12,12 @@
 
 @interface BGDB : NSObject
 //信号量.
-@property(nonatomic, strong)dispatch_semaphore_t _Nullable semaphore;
-@property(nonatomic,assign)BOOL debug;
-@property(nonatomic,copy)NSString* _Nonnull sqliteName;
+@property(nonatomic, strong) dispatch_semaphore_t _Nullable semaphore;
+
+@property(nonatomic, assign) BOOL debug;
+
+@property(nonatomic, copy) NSString* _Nonnull sqliteName;
+
 //设置操作过程中不可关闭数据库(即closeDB函数无效).
 @property(nonatomic,assign)BOOL disableCloseDB;
 /**

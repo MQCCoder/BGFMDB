@@ -238,7 +238,7 @@ static BGDB* BGdb = nil;
             block(db);
             strongSelf.db = nil;
         }];
-    
+
 }
 
 /**
