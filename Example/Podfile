@@ -1,0 +1,6 @@
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'BGFMDB' do
+  pod 'BGFMDB', :path => '../'
+
+end
