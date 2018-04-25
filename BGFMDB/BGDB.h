@@ -10,6 +10,8 @@
 #import "BGFMDBConfig.h"
 #import "FMDB.h"
 
+extern NSString * _Nonnull const CommonDictionaryTable;
+
 @interface BGDB : NSObject
 //信号量.
 @property(nonatomic, strong) dispatch_semaphore_t _Nullable semaphore;
@@ -33,7 +35,7 @@
  */
 +(BOOL)deleteSqlite:(NSString*_Nonnull)sqliteName;
 //事务操作
--(void)inTransaction:(BOOL (^_Nonnull)())block;
+-(void)inTransaction:(BOOL (^_Nonnull)(void))block;
 /**
  注册数据变化监听.
  @claName 注册监听的类名.
@@ -258,32 +260,56 @@
 /**
  删除数组某个元素.
  */
--(BOOL)deleteObjectWithName:(NSString* _Nonnull)name index:(NSInteger)index;
+- (BOOL)deleteObjectWithName:(NSString* _Nonnull)name index:(NSInteger)index;
 
 
 #pragma mark 存储字典.
 /**
  直接存储字典.
  */
--(void)saveDictionary:(NSDictionary* _Nonnull)dictionary complete:(bg_complete_B)complete;
+- (void)saveDictionary:(NSDictionary* _Nonnull)dictionary complete:(bg_complete_B)complete;
+
+/**
+ 存储字典
+ 
+ @param dictionary 需要存储的字典
+ @param tableName 存储所对应的表
+ @param complete 完成
+ */
+- (void)saveDictionary:(NSDictionary *_Nullable)dictionary
+             tableName:(NSString *_Nullable)tableName
+              complete:(void (^_Nullable)(BOOL))complete;
 /**
  添加字典元素.
  */
--(BOOL)bg_setValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key;
+- (BOOL)bg_setValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key;
 /**
  更新字典元素.
  */
--(BOOL)bg_updateValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key;
+- (BOOL)bg_updateValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key;
+
+- (BOOL)bg_updateValue:(id _Nonnull)value
+                forKey:(NSString* const _Nonnull)key
+             tableName:(NSString* const _Nonnull)tableName;
 /**
  遍历字典元素.
  */
--(void)bg_enumerateKeysAndObjectsUsingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block;
+- (void)bg_enumerateKeysAndObjectsUsingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block;
+
+- (void)bg_enumerateKeysAndObjectsWithTableName:(NSString* const _Nonnull)tableName
+                                     usingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block;
 /**
  获取字典元素.
  */
 -(id _Nullable)bg_valueForKey:(NSString* const _Nonnull)key;
+
+-(id _Nullable)bg_valueForKey:(NSString* const _Nonnull)key
+                    tableName:(NSString* const _Nonnull)tableName;
 /**
  删除字典元素.
  */
 -(BOOL)bg_deleteValueForKey:(NSString* const _Nonnull)key;
+
+-(BOOL)bg_deleteValueForKey:(NSString* const _Nonnull)key
+                  tableName:(NSString* const _Nonnull)tableName;
 @end

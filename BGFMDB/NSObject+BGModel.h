@@ -546,5 +546,7 @@ NSMutableData,UIImage,NSDate,NSURL,NSRange,CGRect,CGSize,CGPoint,自定义对象
 /**
  清空字典.
  */
-+(BOOL)bg_clearDictionary;
++ (BOOL)bg_clearDictionary;
+
++ (BOOL)bg_clearDictionary:(NSString* const _Nonnull)tableName;
 @end

@@ -58,12 +58,12 @@
     /**
      直接存储数组.
      */
-    //[self testSaveArray];
+    [self testSaveArray];
     
     /**
      直接存储字典.
     */
-    //[self testSaveDictionary];
+    [self testSaveDictionary];
     
     /**
      直接存储自定义对象.
@@ -103,9 +103,9 @@
      单个对象更新,支持keyPath.
      根据user下的student下的human下的body是否等于小芳 或 age是否等于31 来更新当前对象的数据进入数据库.
      */
-    //NSString* where = [NSString stringWithFormat:@"where %@ and %@=%@",bg_keyPathValues(@[@"user.student.num",bg_equal,@"标哥"]),bg_sqlKey(@"age"),bg_sqlValue(@(99))];
-    //p.name = @"天朝1";
-    //[p bg_updateWhere:where];
+    NSString* where = [NSString stringWithFormat:@"where %@ and %@=%@",bg_keyPathValues(@[@"user.student.num",bg_equal,@"标哥"]),bg_sqlKey(@"age"),bg_sqlValue(@(99))];
+    p.name = @"天朝1";
+    [p bg_updateWhere:where];
     
     /**
      使用SQL语句设置更新.
@@ -284,12 +284,12 @@
     /**
      添加字典元素.
      */
-    //[NSDictionary bg_setValue:@"标哥" forKey:@"name"];
+    [NSDictionary bg_setValue:@"标哥" forKey:@"name"];
     
     /**
     更新字典元素.
      */
-    //[NSDictionary bg_updateValue:@"人妖" forKey:@"key"];
+    [NSDictionary bg_updateValue:@"人妖" forKey:@"key"];
     
     /**
      获取某个字典元素.

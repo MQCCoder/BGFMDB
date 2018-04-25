@@ -1097,14 +1097,26 @@ extern id _Nullable bg_executeSql(NSString* _Nonnull sql,NSString* _Nullable tab
 /**
  清空字典.
  */
-+(BOOL)bg_clearDictionary{
++ (BOOL)bg_clearDictionary
+{
     __block BOOL result;
-    NSString* const tableName = @"BG_Dictionary";
-    [[BGDB shareManager] dropSafeTable:tableName complete:^(BOOL isSuccess) {
+    [[BGDB shareManager] dropSafeTable:CommonDictionaryTable complete:^(BOOL isSuccess) {
         result = isSuccess;
     }];
     //关闭数据库
     [[BGDB shareManager] closeDB];
     return result;
 }
+
++ (BOOL)bg_clearDictionary:(NSString* const _Nonnull)tableName
+{
+    __block BOOL result;
+    [[BGDB shareManager] dropSafeTable:CommonDictionaryTable complete:^(BOOL isSuccess) {
+        result = isSuccess;
+    }];
+    //关闭数据库
+    [[BGDB shareManager] closeDB];
+    return result;
+}
+
 @end

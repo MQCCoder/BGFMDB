@@ -35,6 +35,8 @@ if(self.debug){bg_log(@"调试输出: %@",param);}\
 
 static const void * const BGFMDBDispatchQueueSpecificKey = &BGFMDBDispatchQueueSpecificKey;
 
+NSString * const CommonDictionaryTable = @"CommonDictionaryTable";
+
 @interface BGDB()
 /**
  数据库队列
@@ -165,23 +167,23 @@ static BGDB* BGdb = nil;
     return BGdb;
 }
 //事务操作
--(void)inTransaction:(BOOL (^_Nonnull)())block{
+-(void)inTransaction:(BOOL (^_Nonnull)(void))block
+{
     NSAssert(block, @"block is nil!");
     if([NSThread currentThread].isMainThread){//主线程直接执行
         [self executeTransation:block];
     }else{//子线程则延迟执行
         [self.transactionBlocks addObject:block];
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             [self executeTransationBlocks];
         });
     }
-
 }
 
 /*
  执行事务操作
  */
--(void)executeTransation:(BOOL (^_Nonnull)())block{
+-(void)executeTransation:(BOOL (^_Nonnull)(void))block{
     [self executeDB:^(FMDatabase * _Nonnull db) {
         _inTransaction = db.isInTransaction;
         if (!_inTransaction) {
@@ -213,7 +215,7 @@ static BGDB* BGdb = nil;
         }
 
         while(self.transactionBlocks.count) {
-            BOOL (^block)() = [self.transactionBlocks lastObject];
+            BOOL (^block)(void) = [self.transactionBlocks lastObject];
             [self executeTransation:block];
             [self.transactionBlocks removeLastObject];
         }
@@ -390,6 +392,7 @@ static BGDB* BGdb = nil;
 -(void)insertIntoTableName:(NSString* _Nonnull)name Dict:(NSDictionary* _Nonnull)dict complete:(bg_complete_B)complete{
     NSAssert(name,@"表名不能为空!");
     NSAssert(dict,@"插入值字典不能为空!");
+    
     __block BOOL result;
     [self executeDB:^(FMDatabase * _Nonnull db) {
         NSArray* keys = dict.allKeys;
@@ -2012,16 +2015,32 @@ static BGDB* BGdb = nil;
     dispatch_semaphore_signal(self.semaphore);
     return flag==2;
 }
+
 #pragma mark 存储字典.
+-(void)saveDictionary:(NSDictionary* _Nonnull)dictionary
+             complete:(bg_complete_B)complete
+{
+    [self saveDictionary:dictionary
+               tableName:CommonDictionaryTable
+                complete:complete];
+}
+
 /**
- 直接存储字典.
+ 存储字典
+
+ @param dictionary 需要存储的字典
+ @param tableName 存储所对应的表
+ @param complete 完成
  */
--(void)saveDictionary:(NSDictionary* _Nonnull)dictionary complete:(bg_complete_B)complete{
+- (void)saveDictionary:(NSDictionary *_Nullable)dictionary
+             tableName:(NSString *_Nullable)tableName
+              complete:(void (^_Nullable)(BOOL))complete
+{
     NSAssert(dictionary||dictionary.allKeys.count,@"字典不能为空!");
+    NSAssert(tableName,@"表名不可为空");
     dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
     @autoreleasepool {
         __weak typeof(self) BGSelf = self;
-        NSString* const tableName = @"BG_Dictionary";
         [self isExistWithTableName:tableName complete:^(BOOL isSuccess) {
             if (!isSuccess) {
                 [BGSelf createTableWithTableName:tableName keys:@[[NSString stringWithFormat:@"%@*i",bg_primaryKey],@"key*@\"NSString\"",@"value*@\"NSString\""] unionPrimaryKeys:nil uniqueKeys:@[@"key"] complete:nil];
@@ -2046,6 +2065,7 @@ static BGDB* BGdb = nil;
     }
     dispatch_semaphore_signal(self.semaphore);
 }
+
 /**
  添加字典元素.
  */
@@ -2062,7 +2082,15 @@ static BGDB* BGdb = nil;
 /**
  更新字典元素.
  */
--(BOOL)bg_updateValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key{
+- (BOOL)bg_updateValue:(id _Nonnull)value forKey:(NSString* const _Nonnull)key
+{
+    return [self bg_updateValue:value forKey:key tableName:CommonDictionaryTable];
+}
+
+- (BOOL)bg_updateValue:(id _Nonnull)value
+                forKey:(NSString* const _Nonnull)key
+             tableName:(NSString* const _Nonnull)tableName
+{
     NSAssert(key,@"key不能为空!");
     NSAssert(value,@"value不能为空!");
     dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
@@ -2072,73 +2100,105 @@ static BGDB* BGdb = nil;
         id sqlvalue = [BGTool getSqlValue:value type:type encode:YES];
         sqlvalue = [NSString stringWithFormat:@"%@$$$%@",sqlvalue,type];
         NSDictionary* dict = @{@"BG_value":sqlvalue};
-        NSString* const tableName = @"BG_Dictionary";
-        [self updateWithTableName:tableName valueDict:dict where:@[@"key",@"=",key] complete:^(BOOL isSuccess) {
-            result = isSuccess;
-        }];
+        [self updateWithTableName:tableName
+                        valueDict:dict
+                            where:@[@"key",@"=",key]
+                         complete:^(BOOL isSuccess) {
+                             result = isSuccess;
+                         }];
     }
     dispatch_semaphore_signal(self.semaphore);
     return result;
 }
+
 /**
  遍历字典元素.
  */
--(void)bg_enumerateKeysAndObjectsUsingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block{
+
+-(void)bg_enumerateKeysAndObjectsUsingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block
+{
+    [self bg_enumerateKeysAndObjectsWithTableName:CommonDictionaryTable
+                                       usingBlock:block];
+}
+
+- (void)bg_enumerateKeysAndObjectsWithTableName:(NSString* const _Nonnull)tableName
+                                    usingBlock:(void (^ _Nonnull)(NSString* _Nonnull key, id _Nonnull value,BOOL *stop))block
+{
     dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
     @autoreleasepool{
-        NSString* const tableName = @"BG_Dictionary";
         NSString* condition = [NSString stringWithFormat:@"order by %@ asc",bg_sqlKey(bg_primaryKey)];
-        [self queryQueueWithTableName:tableName conditions:condition complete:^(NSArray * _Nullable array) {
-            BOOL stopFlag = NO;
-            for(NSDictionary* dict in array){
-                NSArray* keyAndTypes = [dict[@"BG_value"] componentsSeparatedByString:@"$$$"];
-                NSString* key = dict[@"BG_key"];
-                id value = [keyAndTypes firstObject];
-                NSString* type = [keyAndTypes lastObject];
-                value = [BGTool getSqlValue:value type:type encode:NO];
-                !block?:block(key,value,&stopFlag);
-                if(stopFlag){
-                    break;
-                }
-            }
-        }];
+        [self queryQueueWithTableName:tableName
+                           conditions:condition
+                             complete:^(NSArray * _Nullable array) {
+                                 BOOL stopFlag = NO;
+                                 for(NSDictionary* dict in array){
+                                     NSArray* keyAndTypes = [dict[@"BG_value"] componentsSeparatedByString:@"$$$"];
+                                     NSString* key = dict[@"BG_key"];
+                                     id value = [keyAndTypes firstObject];
+                                     NSString* type = [keyAndTypes lastObject];
+                                     value = [BGTool getSqlValue:value type:type encode:NO];
+                                     !block?:block(key,value,&stopFlag);
+                                     if(stopFlag){
+                                         break;
+                                     }
+                                 }
+                             }];
     }
     dispatch_semaphore_signal(self.semaphore);
 }
 /**
  获取字典元素.
  */
--(id _Nullable)bg_valueForKey:(NSString* const _Nonnull)key{
+-(id _Nullable)bg_valueForKey:(NSString* const _Nonnull)key
+{
+    return [self bg_valueForKey:key tableName:CommonDictionaryTable];
+}
+
+-(id _Nullable)bg_valueForKey:(NSString* const _Nonnull)key
+                    tableName:(NSString* const _Nonnull)tableName
+{
     NSAssert(key,@"key不能为空!");
     dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
     __block id resultValue = nil;
     @autoreleasepool {
-        NSString* const tableName = @"BG_Dictionary";
-        [self queryQueueWithTableName:tableName conditions:[NSString stringWithFormat:@"where BG_key='%@'",key] complete:^(NSArray * _Nullable array){
-            if(array&&array.count){
-                NSDictionary* dict = [array firstObject];
-                NSArray* keyAndTypes = [dict[@"BG_value"] componentsSeparatedByString:@"$$$"];
-                id value = [keyAndTypes firstObject];
-                NSString* type = [keyAndTypes lastObject];
-                resultValue = [BGTool getSqlValue:value type:type encode:NO];
-            }
-        }];
+        [self queryQueueWithTableName:tableName
+                           conditions:[NSString stringWithFormat:@"where BG_key='%@'",key]
+                             complete:^(NSArray * _Nullable array)
+         {
+             if(array&&array.count){
+                 NSDictionary* dict = [array firstObject];
+                 NSArray* keyAndTypes = [dict[@"BG_value"] componentsSeparatedByString:@"$$$"];
+                 id value = [keyAndTypes firstObject];
+                 NSString* type = [keyAndTypes lastObject];
+                 resultValue = [BGTool getSqlValue:value type:type encode:NO];
+             }
+         }];
     }
     dispatch_semaphore_signal(self.semaphore);
     return resultValue;
 }
+
 /**
  删除字典元素.
  */
--(BOOL)bg_deleteValueForKey:(NSString* const _Nonnull)key{
+- (BOOL)bg_deleteValueForKey:(NSString* const _Nonnull)key
+{
+    return [self bg_deleteValueForKey:key tableName:CommonDictionaryTable];
+}
+
+- (BOOL)bg_deleteValueForKey:(NSString* const _Nonnull)key
+                  tableName:(NSString* const _Nonnull)tableName
+{
     NSAssert(key,@"key不能为空!");
     dispatch_semaphore_wait(self.semaphore, DISPATCH_TIME_FOREVER);
     __block BOOL result;
     @autoreleasepool {
-        NSString* const tableName = @"BG_Dictionary";
-        [self deleteQueueWithTableName:tableName conditions:[NSString stringWithFormat:@"where BG_key='%@'",key] complete:^(BOOL isSuccess) {
-            result = isSuccess;
-        }];
+        [self deleteQueueWithTableName:tableName
+                            conditions:[NSString stringWithFormat:@"where BG_key='%@'",key]
+                              complete:^(BOOL isSuccess)
+         {
+             result = isSuccess;
+         }];
     }
     dispatch_semaphore_signal(self.semaphore);
     return result;
